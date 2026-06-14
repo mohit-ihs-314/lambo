@@ -33,8 +33,4 @@ const leadSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "Lead",
-  leadSchema,
-  "lambo_leads"
-);
+module.exports = mongoose.model("Lead", leadSchema);
