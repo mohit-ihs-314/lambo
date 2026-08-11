@@ -27,14 +27,21 @@ const leadSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // If you are using these fields
+    rmName: {
+      type: String,
+      default: "",
+    },
+
+    project: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model(
-  "Lead",
-  leadSchema,
-  "lambo_leads"
-);
+module.exports = leadSchema;
