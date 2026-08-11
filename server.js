@@ -38,11 +38,111 @@ app.get("/", (req, res) => {
 // MONGODB CONNECTION
 // =====================================
 
+// =====================================
+// MONGODB CONNECTION
+// =====================================
+
 mongoose
     .connect(process.env.MONGO_URI)
-    .then(() => {
+    .then(async () => {
 
         console.log("MongoDB Connected");
+
+
+        // =====================================
+        // TEMPORARY ADMIN CREATION
+        // =====================================
+
+        try {
+
+            const Admin =
+                require("./models/Admin");
+
+            const bcrypt =
+                require("bcryptjs");
+
+
+            const email =
+                "admin@realestate.com";
+
+            const password =
+                "Admin@12345";
+
+
+            // Check if admin already exists
+
+            const existingAdmin =
+                await Admin.findOne({
+                    email,
+                });
+
+
+            if (existingAdmin) {
+
+                console.log(
+                    "Admin already exists:",
+                    email
+                );
+
+            } else {
+
+                // Hash password
+
+                const hashedPassword =
+                    await bcrypt.hash(
+                        password,
+                        12
+                    );
+
+
+                // Create admin
+
+                await Admin.create({
+
+                    name:
+                        "Administrator",
+
+                    email:
+                        email,
+
+                    password:
+                        hashedPassword,
+
+                });
+
+
+                console.log(
+                    "================================="
+                );
+
+                console.log(
+                    "ADMIN CREATED SUCCESSFULLY"
+                );
+
+                console.log(
+                    "Email:",
+                    email
+                );
+
+                console.log(
+                    "Password:",
+                    password
+                );
+
+                console.log(
+                    "================================="
+                );
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "ADMIN CREATION ERROR:",
+                error
+            );
+
+        }
 
     })
     .catch((error) => {
