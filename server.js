@@ -185,6 +185,10 @@ app.use(
 );
 
 
+const eventRoutes = require("./routes/eventRoutes");
+
+app.use("/api/events", eventRoutes);
+
 // =====================================
 // 404 HANDLER
 // =====================================
