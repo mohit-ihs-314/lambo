@@ -11,6 +11,19 @@ const router = express.Router();
 // LOGIN
 // =====================================
 
+const router = express.Router();
+
+router.get("/test", (req, res) => {
+
+    console.log("AUTH TEST ROUTE HIT");
+
+    res.json({
+        message: "Auth route is working",
+        time: new Date().toISOString(),
+    });
+
+});
+
 router.post("/login", async (req, res) => {
 
     try {
