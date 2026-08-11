@@ -11,8 +11,6 @@ const router = express.Router();
 // LOGIN
 // =====================================
 
-const router = express.Router();
-
 router.get("/test", (req, res) => {
 
     console.log("AUTH TEST ROUTE HIT");
