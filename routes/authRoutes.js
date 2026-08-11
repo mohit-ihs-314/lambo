@@ -28,23 +28,73 @@ router.post("/login", async (req, res) => {
 
         const { email, password } = req.body;
 
+        console.log("=================================");
+        console.log("LOGIN ROUTE HIT");
+        console.log("EMAIL:", email);
+        console.log("PASSWORD RECEIVED:", !!password);
+
+
         if (!email || !password) {
+
+            console.log("MISSING CREDENTIALS");
+
             return res.status(400).json({
-                message: "Email and password are required",
+                message:
+                    "Email and password are required",
             });
         }
 
 
-        const admin = await Admin.findOne({
-            email: email.toLowerCase(),
-        });
+        const cleanEmail =
+            email.trim().toLowerCase();
+
+
+        console.log(
+            "SEARCHING EMAIL:",
+            cleanEmail
+        );
+
+
+        const admin =
+            await Admin.findOne({
+                email: cleanEmail,
+            });
+
+
+        console.log(
+            "ADMIN FOUND:",
+            !!admin
+        );
 
 
         if (!admin) {
+
+            console.log(
+                "ADMIN NOT FOUND"
+            );
+
             return res.status(401).json({
-                message: "Invalid email or password",
+                message:
+                    "Admin account not found",
             });
+
         }
+
+
+        console.log(
+            "ADMIN ID:",
+            admin._id.toString()
+        );
+
+        console.log(
+            "ADMIN EMAIL:",
+            admin.email
+        );
+
+        console.log(
+            "PASSWORD HASH EXISTS:",
+            !!admin.password
+        );
 
 
         const passwordMatch =
@@ -54,27 +104,64 @@ router.post("/login", async (req, res) => {
             );
 
 
-        if (!passwordMatch) {
-            return res.status(401).json({
-                message: "Invalid email or password",
-            });
-        }
-
-
-        const token = jwt.sign(
-            {
-                id: admin._id,
-                email: admin.email,
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: "1d",
-            }
+        console.log(
+            "PASSWORD MATCH:",
+            passwordMatch
         );
 
 
-        res.json({
-            message: "Login successful",
+        if (!passwordMatch) {
+
+            console.log(
+                "PASSWORD DOES NOT MATCH"
+            );
+
+            return res.status(401).json({
+                message:
+                    "Password is incorrect",
+            });
+
+        }
+
+
+        if (!process.env.JWT_SECRET) {
+
+            console.error(
+                "JWT_SECRET IS MISSING"
+            );
+
+            return res.status(500).json({
+                message:
+                    "JWT_SECRET is not configured",
+            });
+
+        }
+
+
+        const token =
+            jwt.sign(
+                {
+                    id: admin._id,
+                    email: admin.email,
+                },
+                process.env.JWT_SECRET,
+                {
+                    expiresIn: "1d",
+                }
+            );
+
+
+        console.log(
+            "LOGIN SUCCESS"
+        );
+
+        console.log("=================================");
+
+
+        return res.json({
+
+            message:
+                "Login successful",
 
             token,
 
@@ -83,15 +170,22 @@ router.post("/login", async (req, res) => {
                 name: admin.name,
                 email: admin.email,
             },
+
         });
 
 
     } catch (error) {
 
-        console.error("LOGIN ERROR:", error);
+        console.error(
+            "LOGIN ERROR:",
+            error
+        );
 
-        res.status(500).json({
-            message: "Login failed",
+        return res.status(500).json({
+            message:
+                "Login failed",
+            error:
+                error.message,
         });
 
     }
