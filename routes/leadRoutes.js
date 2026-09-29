@@ -65,10 +65,42 @@ const leadSchema = new mongoose.Schema(
 // =====================================
 
 const allowedCollections = {
+
+    // OLD INVESTOR LEADS
     investor: "investor_leads",
+
+    // LAMBO
     lambo: "lambo_leads",
+
+    // LOFT
     loft: "loft_leads",
+
+    // OMAXE
     omaxe: "omaxe_leads",
+
+    // NEW IHS
+    IHS_01_10_2026: "investor_leads_01_10_2026",
+};
+
+
+// =====================================
+// GET COLLECTION MODEL
+// =====================================
+
+const getLeadModel = (collection) => {
+
+    const collectionName =
+        allowedCollections[collection];
+
+    if (!collectionName) {
+        return null;
+    }
+
+    return mongoose.model(
+        `AdminLead_${collection}`,
+        leadSchema,
+        collectionName
+    );
 };
 
 
@@ -89,7 +121,7 @@ router.get("/", (req, res) => {
 
 
 // =====================================
-// GET LEADS BY COLLECTION
+// GET LEADS
 // =====================================
 
 router.get(
@@ -99,14 +131,16 @@ router.get(
 
         try {
 
-            const { collection } = req.params;
+            const {
+                collection,
+            } = req.params;
 
 
-            const collectionName =
-                allowedCollections[collection];
+            const Lead =
+                getLeadModel(collection);
 
 
-            if (!collectionName) {
+            if (!Lead) {
 
                 return res.status(400).json({
                     message: "Invalid collection",
@@ -115,18 +149,31 @@ router.get(
             }
 
 
-            const Lead = mongoose.model(
-                `Lead_${collection}`,
-                leadSchema,
-                collectionName
+            console.log(
+                "================================="
+            );
+
+            console.log(
+                "ADMIN FETCH COLLECTION:",
+                collection
+            );
+
+            console.log(
+                "MONGODB COLLECTION:",
+                Lead.collection.name
+            );
+
+            console.log(
+                "================================="
             );
 
 
-            const leads = await Lead
-                .find()
-                .sort({
-                    createdAt: -1,
-                });
+            const leads =
+                await Lead
+                    .find()
+                    .sort({
+                        createdAt: -1,
+                    });
 
 
             res.json(leads);
@@ -141,8 +188,11 @@ router.get(
 
 
             res.status(500).json({
-                message: "Failed to fetch leads",
-                error: error.message,
+                message:
+                    "Failed to fetch leads",
+
+                error:
+                    error.message,
             });
 
         }
@@ -172,22 +222,19 @@ router.put(
             } = req.body;
 
 
-            // Check collection
-
-            const collectionName =
-                allowedCollections[collection];
+            const Lead =
+                getLeadModel(collection);
 
 
-            if (!collectionName) {
+            if (!Lead) {
 
                 return res.status(400).json({
-                    message: "Invalid collection",
+                    message:
+                        "Invalid collection",
                 });
 
             }
 
-
-            // Check status
 
             const allowedStatuses = [
                 "New",
@@ -202,28 +249,18 @@ router.put(
             ) {
 
                 return res.status(400).json({
-                    message: "Invalid status",
+                    message:
+                        "Invalid status",
                 });
 
             }
 
 
-            // Get collection model
-
-            const Lead = mongoose.model(
-                `Lead_${collection}`,
-                leadSchema,
-                collectionName
-            );
-
-
-            // Update
-
             const lead =
                 await Lead.findByIdAndUpdate(
                     id,
                     {
-                        status: status,
+                        status,
                     },
                     {
                         new: true,
@@ -235,15 +272,18 @@ router.put(
             if (!lead) {
 
                 return res.status(404).json({
-                    message: "Lead not found",
+                    message:
+                        "Lead not found",
                 });
 
             }
 
 
             res.json({
-                message: "Status updated successfully",
-                lead: lead,
+                message:
+                    "Status updated successfully",
+
+                lead,
             });
 
 
@@ -256,8 +296,11 @@ router.put(
 
 
             res.status(500).json({
-                message: "Failed to update status",
-                error: error.message,
+                message:
+                    "Failed to update status",
+
+                error:
+                    error.message,
             });
 
         }
@@ -283,24 +326,18 @@ router.put(
             } = req.params;
 
 
-            const collectionName =
-                allowedCollections[collection];
+            const Lead =
+                getLeadModel(collection);
 
 
-            if (!collectionName) {
+            if (!Lead) {
 
                 return res.status(400).json({
-                    message: "Invalid collection",
+                    message:
+                        "Invalid collection",
                 });
 
             }
-
-
-            const Lead = mongoose.model(
-                `Lead_${collection}`,
-                leadSchema,
-                collectionName
-            );
 
 
             const {
@@ -314,18 +351,36 @@ router.put(
             } = req.body;
 
 
+            const updateData = {
+                clientName,
+                phone,
+                status,
+                notes,
+            };
+
+
+            // Don't add unnecessary IHS fields
+            if (
+                collection !==
+                "IHS_01_10_2026"
+            ) {
+
+                updateData.rmName =
+                    rmName || "";
+
+                updateData.project =
+                    project || "";
+
+                updateData.photo =
+                    photo || "";
+
+            }
+
+
             const lead =
                 await Lead.findByIdAndUpdate(
                     id,
-                    {
-                        clientName,
-                        phone,
-                        rmName,
-                        project,
-                        notes,
-                        photo,
-                        status,
-                    },
+                    updateData,
                     {
                         new: true,
                         runValidators: true,
@@ -336,15 +391,18 @@ router.put(
             if (!lead) {
 
                 return res.status(404).json({
-                    message: "Lead not found",
+                    message:
+                        "Lead not found",
                 });
 
             }
 
 
             res.json({
-                message: "Lead updated successfully",
-                lead: lead,
+                message:
+                    "Lead updated successfully",
+
+                lead,
             });
 
 
@@ -357,8 +415,11 @@ router.put(
 
 
             res.status(500).json({
-                message: "Failed to update lead",
-                error: error.message,
+                message:
+                    "Failed to update lead",
+
+                error:
+                    error.message,
             });
 
         }
@@ -384,24 +445,18 @@ router.delete(
             } = req.params;
 
 
-            const collectionName =
-                allowedCollections[collection];
+            const Lead =
+                getLeadModel(collection);
 
 
-            if (!collectionName) {
+            if (!Lead) {
 
                 return res.status(400).json({
-                    message: "Invalid collection",
+                    message:
+                        "Invalid collection",
                 });
 
             }
-
-
-            const Lead = mongoose.model(
-                `Lead_${collection}`,
-                leadSchema,
-                collectionName
-            );
 
 
             const lead =
@@ -411,15 +466,18 @@ router.delete(
             if (!lead) {
 
                 return res.status(404).json({
-                    message: "Lead not found",
+                    message:
+                        "Lead not found",
                 });
 
             }
 
 
             res.json({
-                message: "Lead deleted successfully",
-                id: id,
+                message:
+                    "Lead deleted successfully",
+
+                id,
             });
 
 
@@ -432,8 +490,11 @@ router.delete(
 
 
             res.status(500).json({
-                message: "Failed to delete lead",
-                error: error.message,
+                message:
+                    "Failed to delete lead",
+
+                error:
+                    error.message,
             });
 
         }
