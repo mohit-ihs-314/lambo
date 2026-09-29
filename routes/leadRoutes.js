@@ -203,14 +203,45 @@ router.get(
 
 
             const leads =
-                await Lead
-                    .find()
-                    .sort({
-                        createdAt: -1,
-                    });
+                    await Lead
+                        .find()
+                        .sort({
+                            createdAt: -1,
+                        });
 
 
-            res.json(leads);
+                // =========================================
+                // GOOGLE SHEET SYNC - IHS
+                // =========================================
+
+                if (
+                    collection ===
+                    "IHS_01_10_2026"
+                ) {
+
+                    console.log(
+                        "IHS LEADS FOUND:",
+                        leads.length
+                    );
+
+                    for (const lead of leads) {
+
+                        await syncLeadToGoogleSheet({
+
+                            action:
+                                "upsert",
+
+                            lead,
+                        });
+                    }
+                }
+
+
+                // =========================================
+                // RESPONSE
+                // =========================================
+
+                res.json(leads);
 
 
         } catch (error) {
