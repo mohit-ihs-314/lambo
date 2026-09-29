@@ -17,9 +17,7 @@ const {
 
 const leadSchema =
     new mongoose.Schema(
-
         {
-
             clientName: {
                 type: String,
                 required: true,
@@ -111,21 +109,270 @@ const getLeadModel = (
             collection
         ];
 
-
     if (!collectionName) {
         return null;
     }
 
-
     return mongoose.model(
-
         `AdminLead_${collection}`,
-
         leadSchema,
-
         collectionName
     );
 };
+
+
+// =====================================================
+// AUTOMATIC IHS → GOOGLE SHEET SYNC
+// =====================================================
+//
+// This watches MongoDB directly.
+//
+// It means:
+// Flutter / another backend
+//        ↓
+// MongoDB
+//        ↓
+// MongoDB Change Stream
+//        ↓
+// Google Sheet
+//
+// Admin Panel does NOT need to be refreshed.
+// =====================================================
+
+const startIhsGoogleSheetWatcher = () => {
+
+    try {
+
+        const IHSLead =
+            getLeadModel(
+                "IHS_01_10_2026"
+            );
+
+        if (!IHSLead) {
+
+            console.error(
+                "IHS MODEL NOT FOUND"
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "Starting IHS Google Sheet watcher..."
+        );
+
+
+        const changeStream =
+            IHSLead.watch(
+                [],
+                {
+                    fullDocument:
+                        "updateLookup",
+                }
+            );
+
+
+        changeStream.on(
+            "change",
+            async (change) => {
+
+                try {
+
+                    console.log(
+                        "IHS MONGODB CHANGE:",
+                        change.operationType
+                    );
+
+
+                    // =====================================
+                    // NEW LEAD
+                    // =====================================
+
+                    if (
+                        change.operationType ===
+                        "insert"
+                    ) {
+
+                        const lead =
+                            change.fullDocument;
+
+                        console.log(
+                            "NEW IHS LEAD DETECTED:",
+                            lead?._id?.toString()
+                        );
+
+
+                        await syncLeadToGoogleSheet({
+
+                            action:
+                                "upsert",
+
+                            lead,
+                        });
+
+
+                        console.log(
+                            "NEW IHS LEAD SYNCED TO GOOGLE SHEET"
+                        );
+                    }
+
+
+                    // =====================================
+                    // UPDATED LEAD
+                    // =====================================
+
+                    else if (
+                        change.operationType ===
+                        "update" ||
+                        change.operationType ===
+                        "replace"
+                    ) {
+
+                        const lead =
+                            change.fullDocument;
+
+                        if (!lead) {
+
+                            console.log(
+                                "Updated IHS lead has no fullDocument"
+                            );
+
+                            return;
+                        }
+
+
+                        console.log(
+                            "IHS LEAD UPDATED:",
+                            lead._id?.toString()
+                        );
+
+
+                        await syncLeadToGoogleSheet({
+
+                            action:
+                                "upsert",
+
+                            lead,
+                        });
+
+
+                        console.log(
+                            "UPDATED IHS LEAD SYNCED TO GOOGLE SHEET"
+                        );
+                    }
+
+
+                    // =====================================
+                    // DELETED LEAD
+                    // =====================================
+
+                    else if (
+                        change.operationType ===
+                        "delete"
+                    ) {
+
+                        const leadId =
+                            change.documentKey
+                                ?._id;
+
+
+                        console.log(
+                            "IHS LEAD DELETED:",
+                            leadId?.toString()
+                        );
+
+
+                        await syncLeadToGoogleSheet({
+
+                            action:
+                                "delete",
+
+                            lead: {
+                                _id:
+                                    leadId,
+                            },
+                        });
+
+
+                        console.log(
+                            "DELETED IHS LEAD REMOVED FROM GOOGLE SHEET"
+                        );
+                    }
+
+
+                } catch (error) {
+
+                    console.error(
+                        "IHS GOOGLE SHEET WATCHER ERROR:",
+                        error.message
+                    );
+                }
+            }
+        );
+
+
+        changeStream.on(
+            "error",
+            (error) => {
+
+                console.error(
+                    "IHS CHANGE STREAM ERROR:",
+                    error
+                );
+
+            }
+        );
+
+
+        changeStream.on(
+            "close",
+            () => {
+
+                console.log(
+                    "IHS CHANGE STREAM CLOSED"
+                );
+
+            }
+        );
+
+
+        console.log(
+            "IHS Google Sheet watcher started successfully"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "FAILED TO START IHS GOOGLE SHEET WATCHER:",
+            error
+        );
+    }
+};
+
+
+// =====================================================
+// START WATCHER AFTER MONGODB CONNECTION
+// =====================================================
+
+if (
+    mongoose.connection.readyState === 1
+) {
+
+    startIhsGoogleSheetWatcher();
+
+} else {
+
+    mongoose.connection.once(
+        "connected",
+        () => {
+
+            startIhsGoogleSheetWatcher();
+
+        }
+    );
+}
 
 
 // =====================================================
@@ -203,45 +450,14 @@ router.get(
 
 
             const leads =
-                    await Lead
-                        .find()
-                        .sort({
-                            createdAt: -1,
-                        });
+                await Lead
+                    .find()
+                    .sort({
+                        createdAt: -1,
+                    });
 
 
-                // =========================================
-                // GOOGLE SHEET SYNC - IHS
-                // =========================================
-
-                if (
-                    collection ===
-                    "IHS_01_10_2026"
-                ) {
-
-                    console.log(
-                        "IHS LEADS FOUND:",
-                        leads.length
-                    );
-
-                    for (const lead of leads) {
-
-                        await syncLeadToGoogleSheet({
-
-                            action:
-                                "upsert",
-
-                            lead,
-                        });
-                    }
-                }
-
-
-                // =========================================
-                // RESPONSE
-                // =========================================
-
-                res.json(leads);
+            res.json(leads);
 
 
         } catch (error) {
@@ -305,10 +521,6 @@ router.put(
             }
 
 
-            // =========================================
-            // STATUS VALIDATION
-            // =========================================
-
             const allowedStatuses = [
 
                 "New",
@@ -336,10 +548,6 @@ router.put(
             }
 
 
-            // =========================================
-            // UPDATE
-            // =========================================
-
             const lead =
                 await Lead.findByIdAndUpdate(
 
@@ -365,29 +573,6 @@ router.put(
                 });
             }
 
-
-            // =========================================
-            // GOOGLE SHEET SYNC
-            // =========================================
-
-            if (
-                collection ===
-                "IHS_01_10_2026"
-            ) {
-
-                await syncLeadToGoogleSheet({
-
-                    action:
-                        "upsert",
-
-                    lead,
-                });
-            }
-
-
-            // =========================================
-            // RESPONSE
-            // =========================================
 
             res.json({
 
@@ -473,10 +658,6 @@ router.put(
             } = req.body;
 
 
-            // =========================================
-            // COMMON FIELDS
-            // =========================================
-
             const updateData = {
 
                 clientName,
@@ -489,10 +670,6 @@ router.put(
                     notes || "",
             };
 
-
-            // =========================================
-            // NORMAL LEADS
-            // =========================================
 
             if (
                 collection !==
@@ -509,10 +686,6 @@ router.put(
                     photo || "";
             }
 
-
-            // =========================================
-            // UPDATE MONGODB
-            // =========================================
 
             const lead =
                 await Lead.findByIdAndUpdate(
@@ -537,29 +710,6 @@ router.put(
                 });
             }
 
-
-            // =========================================
-            // GOOGLE SHEET
-            // =========================================
-
-            if (
-                collection ===
-                "IHS_01_10_2026"
-            ) {
-
-                await syncLeadToGoogleSheet({
-
-                    action:
-                        "upsert",
-
-                    lead,
-                });
-            }
-
-
-            // =========================================
-            // RESPONSE
-            // =========================================
 
             res.json({
 
@@ -626,10 +776,6 @@ router.delete(
             }
 
 
-            // =========================================
-            // FIND FIRST
-            // =========================================
-
             const lead =
                 await Lead.findById(id);
 
@@ -644,35 +790,8 @@ router.delete(
             }
 
 
-            // =========================================
-            // GOOGLE SHEET DELETE
-            // =========================================
-
-            if (
-                collection ===
-                "IHS_01_10_2026"
-            ) {
-
-                await syncLeadToGoogleSheet({
-
-                    action:
-                        "delete",
-
-                    lead,
-                });
-            }
-
-
-            // =========================================
-            // DELETE MONGODB
-            // =========================================
-
             await lead.deleteOne();
 
-
-            // =========================================
-            // RESPONSE
-            // =========================================
 
             res.json({
 
