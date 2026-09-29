@@ -6,127 +6,158 @@ const router = express.Router();
 const authMiddleware =
     require("../middleware/authMiddleware");
 
+const {
+    syncLeadToGoogleSheet,
+} = require("../utils/googleSheet");
 
-// =====================================
+
+// =====================================================
 // LEAD SCHEMA
-// =====================================
+// =====================================================
 
-const leadSchema = new mongoose.Schema(
-    {
-        clientName: {
-            type: String,
-            required: true,
+const leadSchema =
+    new mongoose.Schema(
+
+        {
+
+            clientName: {
+                type: String,
+                required: true,
+            },
+
+            phone: {
+                type: String,
+                required: true,
+            },
+
+            status: {
+                type: String,
+
+                enum: [
+                    "New",
+                    "Interested",
+                    "Not Interested",
+                    "Closed",
+                ],
+
+                default: "New",
+            },
+
+            photo: {
+                type: String,
+                default: "",
+            },
+
+            rmName: {
+                type: String,
+                default: "",
+            },
+
+            project: {
+                type: String,
+                default: "",
+            },
+
+            notes: {
+                type: String,
+                default: "",
+            },
         },
 
-        phone: {
-            type: String,
-            required: true,
-        },
-
-        status: {
-            type: String,
-            enum: [
-                "New",
-                "Interested",
-                "Not Interested",
-                "Closed",
-            ],
-            default: "New",
-        },
-
-        photo: {
-            type: String,
-            default: "",
-        },
-
-        rmName: {
-            type: String,
-            default: "",
-        },
-
-        project: {
-            type: String,
-            default: "",
-        },
-
-        notes: {
-            type: String,
-            default: "",
-        },
-    },
-    {
-        timestamps: true,
-    }
-);
+        {
+            timestamps: true,
+        }
+    );
 
 
-// =====================================
+// =====================================================
 // COLLECTION MAPPING
-// =====================================
+// =====================================================
 
 const allowedCollections = {
 
-    // OLD INVESTOR LEADS
-    investor: "investor_leads",
+    // OLD INVESTOR
+    investor:
+        "investor_leads",
 
     // LAMBO
-    lambo: "lambo_leads",
+    lambo:
+        "lambo_leads",
 
     // LOFT
-    loft: "loft_leads",
+    loft:
+        "loft_leads",
 
     // OMAXE
-    omaxe: "omaxe_leads",
+    omaxe:
+        "omaxe_leads",
 
     // NEW IHS
-    IHS_01_10_2026: "investor_leads_01_10_2026",
+    IHS_01_10_2026:
+        "investor_leads_01_10_2026",
 };
 
 
-// =====================================
-// GET COLLECTION MODEL
-// =====================================
+// =====================================================
+// GET MODEL
+// =====================================================
 
-const getLeadModel = (collection) => {
+const getLeadModel = (
+    collection
+) => {
 
     const collectionName =
-        allowedCollections[collection];
+        allowedCollections[
+            collection
+        ];
+
 
     if (!collectionName) {
         return null;
     }
 
+
     return mongoose.model(
+
         `AdminLead_${collection}`,
+
         leadSchema,
+
         collectionName
     );
 };
 
 
-// =====================================
-// TEST ROUTE
-// =====================================
+// =====================================================
+// TEST
+// =====================================================
 
-router.get("/", (req, res) => {
+router.get(
+    "/",
+    (req, res) => {
 
-    res.json({
-        message: "Lead API is working",
+        res.json({
 
-        availableCollections:
-            Object.keys(allowedCollections),
-    });
+            message:
+                "Lead API is working",
 
-});
+            availableCollections:
+                Object.keys(
+                    allowedCollections
+                ),
+        });
+    }
+);
 
 
-// =====================================
+// =====================================================
 // GET LEADS
-// =====================================
+// =====================================================
 
 router.get(
     "/:collection",
     authMiddleware,
+
     async (req, res) => {
 
         try {
@@ -137,15 +168,18 @@ router.get(
 
 
             const Lead =
-                getLeadModel(collection);
+                getLeadModel(
+                    collection
+                );
 
 
             if (!Lead) {
 
                 return res.status(400).json({
-                    message: "Invalid collection",
-                });
 
+                    message:
+                        "Invalid collection",
+                });
             }
 
 
@@ -188,26 +222,27 @@ router.get(
 
 
             res.status(500).json({
+
                 message:
                     "Failed to fetch leads",
 
                 error:
                     error.message,
             });
-
         }
-
     }
 );
 
 
-// =====================================
-// UPDATE LEAD STATUS
-// =====================================
+// =====================================================
+// UPDATE STATUS
+// =====================================================
 
 router.put(
     "/:collection/:id/status",
+
     authMiddleware,
+
     async (req, res) => {
 
         try {
@@ -217,51 +252,72 @@ router.put(
                 id,
             } = req.params;
 
+
             const {
                 status,
             } = req.body;
 
 
             const Lead =
-                getLeadModel(collection);
+                getLeadModel(
+                    collection
+                );
 
 
             if (!Lead) {
 
                 return res.status(400).json({
+
                     message:
                         "Invalid collection",
                 });
-
             }
 
 
+            // =========================================
+            // STATUS VALIDATION
+            // =========================================
+
             const allowedStatuses = [
+
                 "New",
+
                 "Interested",
+
                 "Not Interested",
+
                 "Closed",
+
             ];
 
 
             if (
-                !allowedStatuses.includes(status)
+                !allowedStatuses.includes(
+                    status
+                )
             ) {
 
                 return res.status(400).json({
+
                     message:
                         "Invalid status",
                 });
-
             }
 
 
+            // =========================================
+            // UPDATE
+            // =========================================
+
             const lead =
                 await Lead.findByIdAndUpdate(
+
                     id,
+
                     {
                         status,
                     },
+
                     {
                         new: true,
                         runValidators: true,
@@ -272,14 +328,38 @@ router.put(
             if (!lead) {
 
                 return res.status(404).json({
+
                     message:
                         "Lead not found",
                 });
-
             }
 
 
+            // =========================================
+            // GOOGLE SHEET SYNC
+            // =========================================
+
+            if (
+                collection ===
+                "IHS_01_10_2026"
+            ) {
+
+                await syncLeadToGoogleSheet({
+
+                    action:
+                        "upsert",
+
+                    lead,
+                });
+            }
+
+
+            // =========================================
+            // RESPONSE
+            // =========================================
+
             res.json({
+
                 message:
                     "Status updated successfully",
 
@@ -296,26 +376,27 @@ router.put(
 
 
             res.status(500).json({
+
                 message:
                     "Failed to update status",
 
                 error:
                     error.message,
             });
-
         }
-
     }
 );
 
 
-// =====================================
+// =====================================================
 // UPDATE COMPLETE LEAD
-// =====================================
+// =====================================================
 
 router.put(
     "/:collection/:id",
+
     authMiddleware,
+
     async (req, res) => {
 
         try {
@@ -327,39 +408,61 @@ router.put(
 
 
             const Lead =
-                getLeadModel(collection);
+                getLeadModel(
+                    collection
+                );
 
 
             if (!Lead) {
 
                 return res.status(400).json({
+
                     message:
                         "Invalid collection",
                 });
-
             }
 
 
             const {
+
                 clientName,
+
                 phone,
+
                 rmName,
+
                 project,
+
                 notes,
+
                 photo,
+
                 status,
+
             } = req.body;
 
 
+            // =========================================
+            // COMMON FIELDS
+            // =========================================
+
             const updateData = {
+
                 clientName,
+
                 phone,
+
                 status,
-                notes,
+
+                notes:
+                    notes || "",
             };
 
 
-            // Don't add unnecessary IHS fields
+            // =========================================
+            // NORMAL LEADS
+            // =========================================
+
             if (
                 collection !==
                 "IHS_01_10_2026"
@@ -373,14 +476,20 @@ router.put(
 
                 updateData.photo =
                     photo || "";
-
             }
 
 
+            // =========================================
+            // UPDATE MONGODB
+            // =========================================
+
             const lead =
                 await Lead.findByIdAndUpdate(
+
                     id,
+
                     updateData,
+
                     {
                         new: true,
                         runValidators: true,
@@ -391,14 +500,38 @@ router.put(
             if (!lead) {
 
                 return res.status(404).json({
+
                     message:
                         "Lead not found",
                 });
-
             }
 
 
+            // =========================================
+            // GOOGLE SHEET
+            // =========================================
+
+            if (
+                collection ===
+                "IHS_01_10_2026"
+            ) {
+
+                await syncLeadToGoogleSheet({
+
+                    action:
+                        "upsert",
+
+                    lead,
+                });
+            }
+
+
+            // =========================================
+            // RESPONSE
+            // =========================================
+
             res.json({
+
                 message:
                     "Lead updated successfully",
 
@@ -415,26 +548,27 @@ router.put(
 
 
             res.status(500).json({
+
                 message:
                     "Failed to update lead",
 
                 error:
                     error.message,
             });
-
         }
-
     }
 );
 
 
-// =====================================
+// =====================================================
 // DELETE LEAD
-// =====================================
+// =====================================================
 
 router.delete(
     "/:collection/:id",
+
     authMiddleware,
+
     async (req, res) => {
 
         try {
@@ -446,34 +580,71 @@ router.delete(
 
 
             const Lead =
-                getLeadModel(collection);
+                getLeadModel(
+                    collection
+                );
 
 
             if (!Lead) {
 
                 return res.status(400).json({
+
                     message:
                         "Invalid collection",
                 });
-
             }
 
 
+            // =========================================
+            // FIND FIRST
+            // =========================================
+
             const lead =
-                await Lead.findByIdAndDelete(id);
+                await Lead.findById(id);
 
 
             if (!lead) {
 
                 return res.status(404).json({
+
                     message:
                         "Lead not found",
                 });
-
             }
 
 
+            // =========================================
+            // GOOGLE SHEET DELETE
+            // =========================================
+
+            if (
+                collection ===
+                "IHS_01_10_2026"
+            ) {
+
+                await syncLeadToGoogleSheet({
+
+                    action:
+                        "delete",
+
+                    lead,
+                });
+            }
+
+
+            // =========================================
+            // DELETE MONGODB
+            // =========================================
+
+            await lead.deleteOne();
+
+
+            // =========================================
+            // RESPONSE
+            // =========================================
+
             res.json({
+
                 message:
                     "Lead deleted successfully",
 
@@ -490,15 +661,14 @@ router.delete(
 
 
             res.status(500).json({
+
                 message:
                     "Failed to delete lead",
 
                 error:
                     error.message,
             });
-
         }
-
     }
 );
 
